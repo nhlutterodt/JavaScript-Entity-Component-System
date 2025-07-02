@@ -1,0 +1,51 @@
+{
+  "name": "javascript-entity-component-system",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "webpack serve --mode development",
+    "build": "webpack --mode production",
+    "dev": "nodemon src/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.js",
+    "lint:fix": "eslint src/**/*.js --fix",
+    "format": "prettier --write src/**/*.js",
+    "format:check": "prettier --check src/**/*.js"
+  },
+  "keywords": [
+    "ecs",
+    "entity-component-system",
+    "game-engine",
+    "javascript",
+    "architecture"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "A JavaScript Entity Component System implementation",
+  "devDependencies": {
+    "@babel/core": "^7.27.7",
+    "@babel/preset-env": "^7.27.2",
+    "@types/dat.gui": "^0.7.13",
+    "@types/jest": "^30.0.0",
+    "@types/three": "^0.177.0",
+    "babel-jest": "^30.0.2",
+    "babel-loader": "^10.0.0",
+    "concurrently": "^9.2.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^9.30.0",
+    "jest": "^30.0.3",
+    "jest-environment-jsdom": "^30.0.2",
+    "jest-extended": "^6.0.0",
+    "nodemon": "^3.1.10",
+    "prettier": "^3.6.2",
+    "webpack": "^5.99.9",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.2"
+  },
+  "dependencies": {
+    "dat.gui": "^0.7.9",
+    "three": "^0.177.0"
+  }
+}
