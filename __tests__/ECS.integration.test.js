@@ -123,6 +123,30 @@ describe('ECS Integration Tests', () => {
         })
       }));
     });
+
+    test('should report entity existence after creation', () => {
+      const entityId = ecsManager.createEntity('TestEntity');
+      expect(ecsManager.hasEntity(entityId)).toBe(true);
+    });
+
+    test('should report entity non-existence after destruction', () => {
+      const entityId = ecsManager.createEntity('TestEntity');
+      ecsManager.destroyEntity(entityId);
+      expect(ecsManager.hasEntity(entityId)).toBe(false);
+    });
+
+    test('should return false for non-existent entity', () => {
+      expect(ecsManager.hasEntity('nonexistent_id')).toBe(false);
+    });
+
+    test('should not reuse destroyed entity IDs and report correct existence', () => {
+      const firstId = ecsManager.createEntity('Entity1');
+      ecsManager.destroyEntity(firstId);
+      const secondId = ecsManager.createEntity('Entity2');
+      expect(firstId).not.toBe(secondId);
+      expect(ecsManager.hasEntity(firstId)).toBe(false);
+      expect(ecsManager.hasEntity(secondId)).toBe(true);
+    });
   });
 
   describe('Component System Integration', () => {
@@ -161,6 +185,22 @@ describe('ECS Integration Tests', () => {
           type: 'transform'
         })
       }));
+    });
+
+    test('should overwrite component data when adding duplicate component type to entity', () => {
+      const entityId = ecsManager.createEntity('TestEntity');
+      ecsManager.addComponent(entityId, 'foo', { value: 1 });
+      ecsManager.addComponent(entityId, 'foo', { value: 2 });
+      const component = ecsManager.getComponent(entityId, 'foo');
+      expect(component).not.toBeNull();
+      expect(component.data.value).toBe(2); // Should reflect the latest data
+    });
+
+    test('should return false when removing a component type not present on entity', () => {
+      const entityId = ecsManager.createEntity('TestEntity');
+      const result = ecsManager.removeComponent(entityId, 'bar');
+      expect(result).toBe(false);
+      // Should not throw or error
     });
   });
 

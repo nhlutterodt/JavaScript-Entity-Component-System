@@ -429,6 +429,15 @@ class ECSManager {
   get debug() {
     return this.debugManager;
   }
+
+  /**
+   * Check if an entity exists
+   * @param {string} entityId - The entity ID to check
+   * @returns {boolean} True if the entity exists, false otherwise
+   */
+  hasEntity(entityId) {
+    return this.entities.has(entityId);
+  }
 }
 
 export default ECSManager;
