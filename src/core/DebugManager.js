@@ -240,6 +240,85 @@ class DebugManager {
   }
 
   /**
+   * Export debug information as a JSON string
+   * @returns {string} JSON string of debug info
+   */
+  exportDebugInfo() {
+    try {
+      return JSON.stringify(this.getDebugInfo(), null, 2);
+    } catch (e) {
+      this.log('error', 'Failed to export debug info as JSON', e);
+      return '';
+    }
+  }
+
+  /**
+   * Download debug information as a JSON file
+   * @param {string} filename - The filename to use for download
+   */
+  downloadDebugInfo(filename = 'debug-info.json') {
+    const json = this.exportDebugInfo();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+    this.log('info', `Debug info downloaded as ${filename}`);
+  }
+
+  /**
+   * Send debug information to a remote HTTP endpoint (POST)
+   * @param {string} url - The endpoint URL
+   * @param {Object} options - Optional fetch options (headers, etc.)
+   * @returns {Promise<Response>}
+   */
+  async sendDebugInfo(url, options = {}) {
+    const json = this.exportDebugInfo();
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.headers || {})
+        },
+        body: json,
+        ...options
+      });
+      this.log('info', `Debug info sent to ${url}`);
+      return response;
+    } catch (e) {
+      this.log('error', `Failed to send debug info to ${url}`, e);
+      throw e;
+    }
+  }
+
+  /**
+   * Send debug information to a WebSocket server
+   * @param {string} wsUrl - The WebSocket server URL
+   */
+  sendDebugInfoWebSocket(wsUrl) {
+    try {
+      const ws = new WebSocket(wsUrl);
+      ws.onopen = () => {
+        ws.send(this.exportDebugInfo());
+        ws.close();
+        this.log('info', `Debug info sent via WebSocket to ${wsUrl}`);
+      };
+      ws.onerror = (e) => {
+        this.log('error', `WebSocket error sending debug info to ${wsUrl}`, e);
+      };
+    } catch (e) {
+      this.log('error', `Failed to send debug info via WebSocket to ${wsUrl}`, e);
+    }
+  }
+
+  /**
    * Create the debug panel UI
    */
   createDebugPanel() {
@@ -251,6 +330,10 @@ class DebugManager {
       <div id="debug-header">
         <h3>ECS Debug Panel</h3>
         <button id="debug-toggle">Hide</button>
+        <button id="debug-export">Export</button>
+        <button id="debug-download">Download</button>
+        <button id="debug-send">Send</button>
+        <button id="debug-ws">WebSocket</button>
       </div>
       <div id="debug-content">
         <div id="debug-stats"></div>
@@ -289,6 +372,35 @@ class DebugManager {
       content.style.display = isHidden ? 'block' : 'none';
       toggleBtn.textContent = isHidden ? 'Hide' : 'Show';
     });
+
+    // Add export/download/send/ws button functionality
+    const exportBtn = document.getElementById('debug-export');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
+        const json = this.exportDebugInfo();
+        window.prompt('Copy debug info JSON:', json);
+      });
+    }
+    const downloadBtn = document.getElementById('debug-download');
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', () => {
+        this.downloadDebugInfo();
+      });
+    }
+    const sendBtn = document.getElementById('debug-send');
+    if (sendBtn) {
+      sendBtn.addEventListener('click', () => {
+        const url = window.prompt('Enter endpoint URL to send debug info:');
+        if (url) this.sendDebugInfo(url);
+      });
+    }
+    const wsBtn = document.getElementById('debug-ws');
+    if (wsBtn) {
+      wsBtn.addEventListener('click', () => {
+        const wsUrl = window.prompt('Enter WebSocket URL to send debug info:');
+        if (wsUrl) this.sendDebugInfoWebSocket(wsUrl);
+      });
+    }
 
     this.log('info', 'Debug panel created');
   }

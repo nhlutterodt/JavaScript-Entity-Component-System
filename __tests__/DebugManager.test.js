@@ -468,4 +468,97 @@ describe('DebugManager', () => {
       expect(statsDiv.innerHTML).toContain('FPS:');
     });
   });
+
+  describe('Remote Debugging & Export', () => {
+    beforeEach(() => {
+      debugManager.setEnabled(true);
+      debugManager.createDebugPanel();
+    });
+
+    test('exportDebugInfo returns valid JSON', () => {
+      const json = debugManager.exportDebugInfo();
+      expect(() => JSON.parse(json)).not.toThrow();
+      expect(JSON.parse(json)).toEqual(debugManager.getDebugInfo());
+    });
+
+    test('downloadDebugInfo triggers download', () => {
+      const createElementSpy = jest.spyOn(document, 'createElement');
+      const appendChildSpy = jest.spyOn(document.body, 'appendChild');
+      const clickMock = jest.fn();
+      createElementSpy.mockReturnValue({
+        set href(val) {},
+        set download(val) {},
+        click: clickMock,
+        style: {},
+      });
+      debugManager.downloadDebugInfo('test-debug.json');
+      expect(createElementSpy).toHaveBeenCalledWith('a');
+      expect(appendChildSpy).toHaveBeenCalled();
+      expect(clickMock).toHaveBeenCalled();
+      createElementSpy.mockRestore();
+      appendChildSpy.mockRestore();
+    });
+
+    test('sendDebugInfo posts to remote endpoint', async () => {
+      const fetchMock = jest.fn(() => Promise.resolve({ ok: true }));
+      global.fetch = fetchMock;
+      const url = 'https://example.com/debug';
+      await debugManager.sendDebugInfo(url, { headers: { 'X-Test': '1' } });
+      expect(fetchMock).toHaveBeenCalledWith(
+        url,
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ 'Content-Type': 'application/json', 'X-Test': '1' }),
+          body: expect.any(String)
+        })
+      );
+      delete global.fetch;
+    });
+
+    test('sendDebugInfo handles fetch errors', async () => {
+      const fetchMock = jest.fn(() => Promise.reject(new Error('fail')));
+      global.fetch = fetchMock;
+      const url = 'https://example.com/debug';
+      await expect(debugManager.sendDebugInfo(url)).rejects.toThrow('fail');
+      delete global.fetch;
+    });
+
+    test('sendDebugInfoWebSocket sends JSON and logs', () => {
+      const wsSendMock = jest.fn();
+      const wsCloseMock = jest.fn();
+      function MockWebSocket(url) {
+        setTimeout(() => this.onopen && this.onopen(), 0);
+        this.send = wsSendMock;
+        this.close = wsCloseMock;
+        this.onerror = null;
+      }
+      global.WebSocket = MockWebSocket;
+      debugManager.sendDebugInfoWebSocket('ws://localhost:1234');
+      setTimeout(() => {
+        expect(wsSendMock).toHaveBeenCalledWith(debugManager.exportDebugInfo());
+        expect(wsCloseMock).toHaveBeenCalled();
+        delete global.WebSocket;
+      }, 10);
+    });
+
+    test('debug panel export/download/send/ws buttons call correct methods', () => {
+      const exportSpy = jest.spyOn(debugManager, 'exportDebugInfo');
+      const downloadSpy = jest.spyOn(debugManager, 'downloadDebugInfo');
+      const sendSpy = jest.spyOn(debugManager, 'sendDebugInfo');
+      const wsSpy = jest.spyOn(debugManager, 'sendDebugInfoWebSocket');
+      window.prompt = jest.fn(() => 'http://test');
+      document.getElementById('debug-export').click();
+      expect(exportSpy).toHaveBeenCalled();
+      document.getElementById('debug-download').click();
+      expect(downloadSpy).toHaveBeenCalled();
+      document.getElementById('debug-send').click();
+      expect(sendSpy).toHaveBeenCalled();
+      document.getElementById('debug-ws').click();
+      expect(wsSpy).toHaveBeenCalled();
+      exportSpy.mockRestore();
+      downloadSpy.mockRestore();
+      sendSpy.mockRestore();
+      wsSpy.mockRestore();
+    });
+  });
 });

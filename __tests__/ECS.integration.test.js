@@ -494,4 +494,39 @@ describe('ECS Integration Tests', () => {
       expect(animationSystem.animations.has(entityId)).toBe(false);
     });
   });
+
+  describe('System Enable/Disable', () => {
+    test('should have systems enabled by default after registration', () => {
+      expect(ecsManager.systems.find(s => s.name === 'RenderSystem').enabled).toBe(true);
+      expect(ecsManager.systems.find(s => s.name === 'AnimationSystem').enabled).toBe(true);
+    });
+
+    test('should disable a system and prevent its update', () => {
+      const updateSpy = jest.spyOn(renderSystem, 'update');
+      ecsManager.disableSystem('RenderSystem');
+      ecsManager.updateSystems(16.67);
+      expect(ecsManager.systems.find(s => s.name === 'RenderSystem').enabled).toBe(false);
+      expect(updateSpy).not.toHaveBeenCalled();
+    });
+
+    test('should enable a previously disabled system and resume its update', () => {
+      const updateSpy = jest.spyOn(renderSystem, 'update');
+      ecsManager.disableSystem('RenderSystem');
+      ecsManager.enableSystem('RenderSystem');
+      ecsManager.updateSystems(16.67);
+      expect(ecsManager.systems.find(s => s.name === 'RenderSystem').enabled).toBe(true);
+      expect(updateSpy).toHaveBeenCalledWith(16.67, ecsManager);
+    });
+
+    test('should return false when enabling/disabling a non-existent system', () => {
+      expect(ecsManager.disableSystem('BogusSystem')).toBe(false);
+      expect(ecsManager.enableSystem('BogusSystem')).toBe(false);
+    });
+
+    test('should be idempotent when enabling/disabling an already enabled/disabled system', () => {
+      expect(ecsManager.enableSystem('RenderSystem')).toBe(true); // already enabled
+      ecsManager.disableSystem('RenderSystem');
+      expect(ecsManager.disableSystem('RenderSystem')).toBe(true); // already disabled
+    });
+  });
 });

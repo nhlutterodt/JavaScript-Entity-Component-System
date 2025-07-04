@@ -284,6 +284,44 @@ class ECSManager {
   }
 
   /**
+   * Enable a system by name
+   * @param {string} systemName - The name of the system to enable
+   * @returns {boolean} True if enabled, false if not found
+   */
+  enableSystem(systemName) {
+    const system = this.systems.find(s => s.name === systemName);
+    if (!system) {
+      this.debugManager.log('warn', `System not found: ${systemName}`);
+      return false;
+    }
+    if (!system.enabled) {
+      system.enabled = true;
+      this.debugManager.log('info', `System enabled: ${systemName}`);
+      this.eventManager.emit('system:enabled', { name: systemName, system: system.instance });
+    }
+    return true;
+  }
+
+  /**
+   * Disable a system by name
+   * @param {string} systemName - The name of the system to disable
+   * @returns {boolean} True if disabled, false if not found
+   */
+  disableSystem(systemName) {
+    const system = this.systems.find(s => s.name === systemName);
+    if (!system) {
+      this.debugManager.log('warn', `System not found: ${systemName}`);
+      return false;
+    }
+    if (system.enabled) {
+      system.enabled = false;
+      this.debugManager.log('info', `System disabled: ${systemName}`);
+      this.eventManager.emit('system:disabled', { name: systemName, system: system.instance });
+    }
+    return true;
+  }
+
+  /**
    * Start the main update loop
    */
   start() {
