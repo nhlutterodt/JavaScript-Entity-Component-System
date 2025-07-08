@@ -1,7 +1,8 @@
 /**
- * Binding Map System
- * Maps raw input events to high-level actions based on context
- * Supports multi-key combinations, modifiers, and context switching
+ * BindingMap
+ * Maps raw input events to high-level actions based on context.
+ * Supports multi-key combinations, modifiers, context switching, and binding normalization.
+ * Used by input systems for flexible action mapping.
  */
 class BindingMap {
   constructor() {

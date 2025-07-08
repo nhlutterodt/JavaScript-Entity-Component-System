@@ -1,3 +1,10 @@
+/**
+ * ECSManager
+ * Main ECS manager that coordinates all systems, entities, and components.
+ * Integrates event management and debug management.
+ * Handles system registration, entity/component lifecycle, update loop, and statistics.
+ */
+
 import EventManager from './EventManager.js';
 import DebugManager from './DebugManager.js';
 

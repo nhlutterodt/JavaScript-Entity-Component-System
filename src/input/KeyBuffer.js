@@ -1,12 +1,19 @@
 /**
+ * KeyBuffer
+ * Circular buffer for recent input events, used for combo detection and input analysis.
+ * Tracks pressed keys, supports pattern/sequence matching, and provides buffer statistics.
+ * Used by input systems to analyze recent input history.
+ */
+
+/**
  * Key Buffer System
  * Maintains a circular buffer of recent input events for combo detection
  * and input analysis
  */
 class KeyBuffer {
-  constructor(size = 32) {
+  constructor(size = -1) {
     // Validate buffer size - negative values should be treated as unlimited
-    this.bufferSize = size < 0 ? -1 : size; // Use -1 to indicate unlimited
+    this.bufferSize = size < 0 ? -1 : size; // -1 = unlimited, 0 = no storage
     this.buffer = new Array(size < 0 ? 0 : size);
     this.writeIndex = 0;
     this.count = 0;
@@ -395,117 +402,77 @@ class KeyBuffer {
   }
 
   /**
-   * Get current number of keys in the buffer
-   * @returns {number} Number of pressed keys
+   * Get number of pressed keys
    */
   size() {
-    return this.pressedKeys ? this.pressedKeys.size : 0;
+    return this.pressedKeys.size;
   }
 
   /**
-   * Add a key to the pressed keys set
-   * @param {string} key - Key to add
+   * Add a key press to the buffer and pressed set
+   * @param {*} key
    */
   add(key) {
-    if (!this.pressedKeys) {
-      this.pressedKeys = new Set();
-      this.keyOrder = [];
-    }
-    
-    // For zero-sized buffer, don't add anything
-    if (this.bufferSize === 0) {
-      return;
-    }
-    
-    // If key is already pressed, don't add duplicate
-    if (this.pressedKeys.has(key)) {
-      return;
-    }
-    
-    // For the simple key tracking API, only apply size limits for explicitly small buffers
-    // Default buffer (32) and larger should allow unlimited key tracking
-    // Only buffers with size 1-10 should be limited (intentionally small)
-    if (this.bufferSize > 0 && this.bufferSize <= 10 && this.keyOrder.length >= this.bufferSize) {
-      const oldestKey = this.keyOrder.shift(); // Remove first (oldest) key
-      this.pressedKeys.delete(oldestKey);
-    }
-    
+    // No storage when bufferSize is zero
+    if (this.bufferSize === 0) return;
     this.pressedKeys.add(key);
     this.keyOrder.push(key);
+    // Enforce buffer size limit
+    if (this.bufferSize > 0 && this.pressedKeys.size > this.bufferSize) {
+      const oldest = this.keyOrder.shift();
+      this.pressedKeys.delete(oldest);
+    }
   }
 
   /**
-   * Remove a key from the pressed keys set
-   * @param {string} key - Key to remove
-   * @returns {boolean} True if key was removed, false if not found
-   */
-  remove(key) {
-    if (!this.pressedKeys) {
-      return false;
-    }
-    
-    const wasRemoved = this.pressedKeys.delete(key);
-    if (wasRemoved && this.keyOrder) {
-      // Also remove from order array
-      const index = this.keyOrder.indexOf(key);
-      if (index !== -1) {
-        this.keyOrder.splice(index, 1);
-      }
-    }
-    return wasRemoved;
-  }
-
-  /**
-   * Check if a specific key is currently pressed
-   * @param {string} key - Key to check
-   * @returns {boolean} True if key is pressed
+   * Check if a key is currently pressed
    */
   isPressed(key) {
-    return this.pressedKeys ? this.pressedKeys.has(key) : false;
+    return this.pressedKeys.has(key);
   }
 
   /**
-   * Get all currently pressed keys
-   * @returns {Array<string>} Copy of pressed keys array
+   * Remove a key from the pressed set
+   * @returns {boolean}
    */
-  getPressed() {
-    return this.pressedKeys ? Array.from(this.pressedKeys) : [];
+  remove(key) {
+    if (this.pressedKeys.has(key)) {
+      this.pressedKeys.delete(key);
+      this.keyOrder = this.keyOrder.filter(k => k !== key);
+      return true;
+    }
+    return false;
   }
 
   /**
    * Clear all pressed keys
    */
   clear() {
-    if (this.pressedKeys) {
-      this.pressedKeys.clear();
-    }
-    if (this.keyOrder) {
-      this.keyOrder.length = 0;
-    }
+    this.pressedKeys.clear();
+    this.keyOrder = [];
   }
 
   /**
-   * Check if all specified keys are pressed
-   * @param {Array<string>} keys - Keys to check
-   * @returns {boolean} True if all keys are pressed
+   * Check if all keys in an array are pressed
    */
   arePressed(keys) {
-    if (!this.pressedKeys || !Array.isArray(keys)) {
-      return false;
-    }
-    return keys.every(key => this.pressedKeys.has(key));
+    if (!Array.isArray(keys)) return false;
+    return keys.every(k => this.pressedKeys.has(k));
   }
 
   /**
-   * Check if any of the specified keys are pressed
-   * @param {Array<string>} keys - Keys to check
-   * @returns {boolean} True if any key is pressed
+   * Check if any key in an array is pressed
    */
   isAnyPressed(keys) {
-    if (!this.pressedKeys || !Array.isArray(keys)) {
-      return false;
-    }
-    return keys.some(key => this.pressedKeys.has(key));
+    if (!Array.isArray(keys) || keys.length === 0) return false;
+    return keys.some(k => this.pressedKeys.has(k));
+  }
+
+  /**
+   * Get list of all pressed keys
+   */
+  getPressed() {
+    return Array.from(this.pressedKeys);
   }
 }
 

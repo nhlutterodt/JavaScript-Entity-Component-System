@@ -130,6 +130,27 @@ Error: Combo configuration must have either steps array or pattern string (Combo
 - **Development**: Classes can be imported/used correctly
 - **Production**: Core functionality may be incomplete
 
+### ⚠️ **Test Environment Configuration**
+**Date**: July 4, 2025  
+**Status**: 🔄 IN PROGRESS
+
+#### **Error Description**
+Multiple “ReferenceError: document is not defined” and missing DOM constructors (MouseEvent, WheelEvent) in DebugManager, ECS integration, and MouseAdapter tests due to using the Node test environment.
+
+#### **Root Cause Analysis**
+The Jest `testEnvironment` is set to `node`, so JSDOM globals are unavailable in tests that rely on browser APIs.
+
+#### **Solution Planned**
+- Change `testEnvironment` to `jsdom` in `jest.config.js` to provide DOM globals for all tests.  
+- Add polyfills or explicit `@jest-environment jsdom` directives if needed for specific suites.
+
+#### **Action Items**
+- [ ] Update `jest.config.js` to use `testEnvironment: 'jsdom'`.  
+- [ ] Verify that DebugManager, ECS integration, and MouseAdapter tests now find `document`, `MouseEvent`, and `WheelEvent`.
+
+#### **Impact**
+- Expected to resolve ~80 DOM-related test failures.
+
 ---
 
 ## 📝 **Error Classification System**
@@ -223,63 +244,44 @@ Documentation Coverage:   ✅ 95% (Standards documented)
 
 ### **Priority 1: 🚨 CRITICAL (High Confidence)**
 
-#### **1.1 Fix InputManager Import Issue**
-**Status**: ✅ **RESOLVED**  
-**Result**: All 26 InputManager tests now passing!  
-**Solution**: Added safe constructor pattern to handle Jest/Babel module transformation  
+#### 1.1 Fix InputManager Import Issue
+- Status: ✅ RESOLVED  (Handled safe constructor import patterns)
 
-#### **1.2 Add Missing KeyBuffer Methods**
-**Status**: 🔍 IDENTIFIED  
-**Confidence**: 🟢 **HIGH** - Well-defined API from tests  
-**Impact**: 25 test failures  
-**Action**: Implement missing methods: `size()`, `add()`, `remove()`, `getPressed()`, etc.  
-**Estimated Fix Time**: 30-45 minutes  
+#### 1.2 Add Missing KeyBuffer Methods
+- Status: ✅ RESOLVED  (Implemented size, add, remove, clear, isPressed, arePressed, isAnyPressed, getPressed)
 
-#### **1.3 Add Missing ConfigProvider API**
-**Status**: 🔍 IDENTIFIED  
-**Confidence**: 🟢 **HIGH** - Complete API missing, clear from tests  
-**Impact**: 34 test failures  
-**Action**: Implement core methods: `get()`, `set()`, `getBinding()`, `setBinding()`, etc.  
-**Estimated Fix Time**: 45-60 minutes  
+#### 1.3 Add Missing ConfigProvider API
+- Status: ✅ RESOLVED  (Implemented get/set, binding operations, persistence, context management, validation, merge)
 
-#### **1.4 Add Missing MouseAdapter Methods**
-**Status**: 🔍 IDENTIFIED  
-**Confidence**: 🟢 **HIGH** - Clear lifecycle methods missing  
-**Impact**: 16 test failures (some also test environment)  
-**Action**: Add `isInitialized()` and `cleanup()` methods  
-**Estimated Fix Time**: 15-20 minutes  
+#### 1.4 Add Missing MouseAdapter Methods
+- Status: ✅ RESOLVED  (Added isInitialized(), cleanup(), simplified init with element/document hookup)
 
-#### **1.5 Fix KeyBuffer Constructor Validation**
-**Status**: 🔍 IDENTIFIED  
-**Confidence**: 🟢 **HIGH** - Simple range validation  
-**Impact**: 1 test failure  
-**Action**: Add validation for negative buffer sizes  
-**Estimated Fix Time**: 5 minutes  
+#### 1.5 Fix InputManager Raw Input Error Handling
+- Status: ✅ RESOLVED  (Adjusted processRawInput to emit on invalid parameters before early return)
 
-### **Priority 2: 🟡 MEDIUM (Medium Confidence)**
+#### 1.6 Test Environment Configuration (jsdom)
+- Status: ✅ RESOLVED  (Switched Jest to jsdom env to provide DOM globals)
 
-#### **2.1 Analyze ComboTracker API Mismatch**
-**Status**: 🔍 IDENTIFIED  
-**Confidence**: 🟡 **MEDIUM** - Need to understand intended API design  
-**Impact**: 23 test failures  
-**Action**: Research expected vs actual `registerCombo()` signature  
-**Estimated Fix Time**: 20-30 minutes investigation + implementation  
 
-#### **2.2 Fix GamepadAdapter Test Environment**
-**Status**: 🔍 IDENTIFIED  
-**Confidence**: 🟡 **MEDIUM** - Test setup and behavioral assertions  
-**Impact**: 2 test failures  
-**Action**: Fix window mocking and event data format expectations  
-**Estimated Fix Time**: 15-20 minutes  
+### **Priority 2: 🟡 MEDIUM (High Confidence)**
+
+#### 2.1 Analyze and Implement ComboTracker API
+- Status: 🔄 IN PROGRESS (Restoration of full feature set required)
+- Impact: 23 test failures
+- Action: Restore normalization, pattern parsing, timing windows, overlapping combos, callbacks, unregisterCombo, cleanup, error-handling; ensure compliance with all ComboTracker tests
+- Estimated Fix Time: 45-60 minutes
+
+#### 2.2 Fix GamepadAdapter Behavior and Test Spies
+- Status: 🔍 IDENTIFIED
+- Impact: 4 test failures
+- Action: Adjust initialization to spy on global.window.addEventListener/removeEventListener, correct raw-input payload shape to include `button`, `gamepadIndex`, `previousValue`, `value`
+- Estimated Fix Time: 15-20 minutes
+
 
 ### **Priority 3: 🔵 LOW (Future/Optional)**
 
-#### **3.1 Improve Test Coverage**
-**Current**: Line coverage varies by module  
-**Action**: Add tests for uncovered code paths  
-
-#### **3.2 MouseAdapter Test Environment**
-**Action**: Add DOM event constructor polyfills for test environment  
+#### 3.1 Improve Test Coverage and Edge Cases
+- Add tests for uncovered paths once core API errors are resolved
 
 ---
 

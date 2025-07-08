@@ -1,13 +1,7 @@
 /**
- * GamepadAdapter - Handles gamepad input events
- * 
- * Features:
- * - Multiple gamepad support
- * - Button press/release detection
- * - Analog stick handling with deadzone
- * - Trigger handling
- * - D-pad support
- * - Connection/disconnection events
+ * GamepadAdapter
+ * Handles gamepad input events, multiple gamepad support, button/axis handling, and connection events.
+ * Integrates with ECS event system and provides vibration support if available.
  */
 class GamepadAdapter {
     constructor(eventManager, options = {}) {
@@ -189,9 +183,8 @@ class GamepadAdapter {
         // Process buttons
         for (let i = 0; i < gamepad.buttons.length; i++) {
             const button = gamepad.buttons[i];
-            const previousButton = previousState.buttons[i];
-            
-            if (!previousButton) continue;
+            // Default to unpressed zero-value if previous state missing for this button index
+            const previousButton = previousState.buttons[i] || { pressed: false, value: 0 };
             
             // Button press detection
             if (button.pressed && !previousButton.pressed) {

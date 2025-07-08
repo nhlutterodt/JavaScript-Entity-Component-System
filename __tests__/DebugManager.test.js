@@ -1,4 +1,11 @@
 /**
+ * DebugManager.test.js
+ * Unit tests for the DebugManager class, covering initialization, enabling/disabling,
+ * logging, performance tracking, system/entity/component registration, debug panel,
+ * performance monitoring, debug info export, and edge cases.
+ * Uses Jest and jsdom for DOM manipulation and assertions.
+ */
+/**
  * @jest-environment jsdom
  */
 import DebugManager from '../src/core/DebugManager.js';
@@ -559,6 +566,45 @@ describe('DebugManager', () => {
       downloadSpy.mockRestore();
       sendSpy.mockRestore();
       wsSpy.mockRestore();
+    });
+  });
+
+  describe('Error Event Emission', () => {
+    beforeEach(() => {
+      debugManager.setEnabled(true);
+    });
+
+    test('trackPerformance emits onError and rethrows', () => {
+      const onErrorSpy = jest.fn();
+      debugManager.onError(onErrorSpy);
+
+      expect(() => {
+        debugManager.trackPerformance('error_op', () => { throw new Error('TestError'); });
+      }).toThrow('TestError');
+
+      expect(onErrorSpy).toHaveBeenCalledWith(expect.any(Error), 'error_op');
+    });
+
+    test('offError prevents callbacks after unsubscribe', () => {
+      const cb = jest.fn();
+      debugManager.onError(cb);
+      debugManager.offError(cb);
+
+      expect(() => {
+        debugManager.trackPerformance('error2', () => { throw new Error(`Err2`); });
+      }).toThrow('Err2');
+
+      expect(cb).not.toHaveBeenCalled();
+    });
+
+    test('addLogToPanel highlights error entries', () => {
+      debugManager.createDebugPanel();
+      const logsDiv = document.getElementById('debug-logs');
+      logsDiv.innerHTML = '';
+
+      debugManager.addLogToPanel('error', '12:00:00.000', 'Critical failure', null);
+      const entry = logsDiv.firstChild;
+      expect(entry.style.background).toContain('rgba(255, 0, 0');
     });
   });
 });

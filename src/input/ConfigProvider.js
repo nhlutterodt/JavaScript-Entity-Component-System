@@ -1,4 +1,11 @@
 /**
+ * ConfigProvider
+ * Manages input configuration and user profiles for the ECS input system.
+ * Handles loading/saving configs from various backends (localStorage, IndexedDB, file).
+ * Supports profile creation, switching, migration, export/import, and debug info.
+ */
+
+/**
  * Configuration Provider System
  * Handles loading, saving, and managing input configuration
  * Supports multiple storage backends and user profiles
@@ -16,7 +23,10 @@ class ConfigProvider {
     // Use imported default configuration
     this.defaultConfig = defaultInputConfig;
     
-    this.currentConfig = null;
+    // Initialize currentConfig for simple get/set API
+    const ctx = Array.isArray(options.contexts) ? options.contexts : ['default'];
+    const binds = options.bindings && typeof options.bindings === 'object' ? options.bindings : {};
+    this.currentConfig = { contexts: ctx, bindings: binds };
     this.configCache = new Map();
     this.profileCache = new Map();
   }
@@ -498,6 +508,189 @@ class ConfigProvider {
       cacheSize: this.configCache.size,
       lastModified: this.currentConfig?.metadata?.lastModified
     };
+  }
+
+  /**
+   * Get a value by key path
+   */
+  get(path, defaultValue = undefined) {
+    // No path provided: return full currentConfig
+    if (arguments.length === 0) return this.currentConfig;
+    if (typeof path !== 'string' || !path) return defaultValue;
+    const parts = path.split('.');
+    let obj = this.currentConfig || {};
+    for (const part of parts) {
+      if (obj && Object.prototype.hasOwnProperty.call(obj, part)) {
+        obj = obj[part];
+      } else {
+        return defaultValue;
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * Set a value by key path
+   */
+  set(path, value) {
+    if (typeof path !== 'string' || !path) return;
+    const parts = path.split('.');
+    let obj = this.currentConfig = this.currentConfig || {};
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      if (!obj[part] || typeof obj[part] !== 'object') {
+        obj[part] = {};
+      }
+      obj = obj[part];
+    }
+    obj[parts[parts.length - 1]] = value;
+  }
+
+  /**
+   * Get binding by action and context
+   */
+  getBinding(action, context = 'default') {
+    const bindings = this.get('bindings.' + context) || {};
+    return bindings[action];
+  }
+
+  /**
+   * Set binding by action and context
+   */
+  setBinding(action, value, context = 'default') {
+    const key = 'bindings.' + context + '.' + action;
+    this.set(key, value);
+  }
+
+  /**
+   * Save to storage (wrapper)
+   */
+  save() {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('inputConfig', JSON.stringify(this.currentConfig || {}));
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  /**
+   * Load from storage (wrapper)
+   */
+  load() {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const data = localStorage.getItem('inputConfig');
+        const parsed = JSON.parse(data);
+        if (parsed && typeof parsed === 'object') {
+          this.currentConfig = parsed;
+          return;
+        }
+      }
+      // If no data or invalid, fallback
+      this.currentConfig = { contexts: ['default'], bindings: {} };
+    } catch (e) {
+      // On parse error or other issues, fallback to default
+      this.currentConfig = { contexts: ['default'], bindings: {} };
+    }
+  }
+
+  /**
+   * Add a new context
+   */
+  addContext(context) {
+    if (!this.isValidContext(context)) return;
+    this.currentConfig = this.currentConfig || {};
+    this.currentConfig.contexts = this.currentConfig.contexts || ['default'];
+    if (!this.currentConfig.contexts.includes(context)) {
+      this.currentConfig.contexts.push(context);
+    }
+  }
+
+  /**
+   * Remove a context (except default)
+   */
+  removeContext(context) {
+    if (context === 'default') return;
+    if (!this.currentConfig || !Array.isArray(this.currentConfig.contexts)) return;
+    this.currentConfig.contexts = this.currentConfig.contexts.filter(c => c !== context);
+    if (this.currentConfig.bindings) {
+      delete this.currentConfig.bindings[context];
+    }
+  }
+
+  /**
+   * Check if key name is valid
+   */
+  isValidKey(key) {
+    return typeof key === 'string' && key.length > 0;
+  }
+
+  /**
+   * Check if action name is valid
+   */
+  isValidAction(action) {
+    return typeof action === 'string' && /^[A-Za-z0-9_-]+$/.test(action);
+  }
+
+  /**
+   * Check if context name is valid
+   */
+  isValidContext(context) {
+    return typeof context === 'string' && context.length > 0;
+  }
+
+  /**
+   * Set multiple bindings at once
+   */
+  setBindings(bindings, context = 'default') {
+    if (typeof bindings !== 'object' || bindings === null) return;
+    for (const [action, value] of Object.entries(bindings)) {
+      this.setBinding(action, value, context);
+    }
+  }
+
+  /**
+   * Get all bindings for a context
+   */
+  getBindings(context = 'default') {
+    return this.get('bindings.' + context) || {};
+  }
+
+  /**
+   * Clear all bindings for a context
+   */
+  clearBindings(context = 'default') {
+    this.set('bindings.' + context, {});
+  }
+
+  /**
+   * Merge another config into current
+   */
+  merge(newConfig) {
+    if (!newConfig || typeof newConfig !== 'object') return;
+    // Merge contexts
+    if (Array.isArray(newConfig.contexts)) {
+      this.currentConfig = this.currentConfig || {};
+      this.currentConfig.contexts = this.currentConfig.contexts || ['default'];
+      newConfig.contexts.forEach(ctx => {
+        if (this.isValidContext(ctx) && !this.currentConfig.contexts.includes(ctx)) {
+          this.currentConfig.contexts.push(ctx);
+        }
+      });
+    }
+    // Merge bindings
+    if (newConfig.bindings && typeof newConfig.bindings === 'object') {
+      Object.entries(newConfig.bindings).forEach(([ctx, binds]) => {
+        this.setBindings(binds, ctx);
+      });
+    }
+    // Merge settings
+    if (newConfig.settings && typeof newConfig.settings === 'object') {
+      this.currentConfig.settings = this.currentConfig.settings || {};
+      Object.assign(this.currentConfig.settings, newConfig.settings);
+    }
   }
 }
 

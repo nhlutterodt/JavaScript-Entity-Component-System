@@ -1,6 +1,7 @@
 /**
- * Input System Module Exports
- * Centralized exports for the entire input system
+ * index.js
+ *
+ * Central export module for the input system. Exports all core input classes, device adapters, and provides a convenience function to create a fully configured input system. This file serves as the main entry point for importing input-related functionality.
  */
 
 // Core input manager

@@ -1,6 +1,7 @@
 /**
- * Debug Management System for ECS
- * Provides debugging tools, performance monitoring, and system inspection
+ * DebugManager
+ * Provides debugging tools, performance monitoring, and system/entity/component inspection for ECS.
+ * Handles debug panel UI, logging, export, and remote debug info sending.
  */
 class DebugManager {
   constructor() {
@@ -37,6 +38,8 @@ class DebugManager {
       warn: 2,
       error: 3
     };
+
+    this.errorListeners = new Set();
   }
 
   /**
@@ -142,6 +145,35 @@ class DebugManager {
   }
 
   /**
+   * Subscribe to internal error events from DebugManager
+   * @param {Function} callback - (error, contextName) => void
+   */
+  onError(callback) {
+    this.errorListeners.add(callback);
+  }
+
+  /**
+   * Unsubscribe from internal error events
+   * @param {Function} callback
+   */
+  offError(callback) {
+    this.errorListeners.delete(callback);
+  }
+
+  /**
+   * Emit an internal error event to all subscribers
+   */
+  _emitError(error, context) {
+    for (const cb of this.errorListeners) {
+      try {
+        cb(error, context);
+      } catch (_e) {
+        // ignore listener errors
+      }
+    }
+  }
+
+  /**
    * Track performance of a function or code block
    * @param {string} name - Name of the operation being tracked
    * @param {Function} fn - Function to execute and track
@@ -153,7 +185,14 @@ class DebugManager {
     }
 
     const startTime = performance.now();
-    const result = fn();
+    let result;
+    try {
+      result = fn();
+    } catch (e) {
+      this.log('error', `Error during '${name}'`, e);
+      this._emitError(e, name);
+      throw e;
+    }
     const endTime = performance.now();
     const duration = endTime - startTime;
 
@@ -483,6 +522,10 @@ class DebugManager {
     if (!logsDiv) return;
 
     const logEntry = document.createElement('div');
+    // visually distinguish errors
+    if (level === 'error') {
+      logEntry.style.background = 'rgba(255, 0, 0, 0.1)';
+    }
     logEntry.style.cssText = `
       color: ${this.colors[level]};
       margin: 2px 0;

@@ -1,10 +1,17 @@
 /**
+ * MouseAdapter
+ * Handles mouse input events, pointer lock, movement smoothing, sensitivity, and state tracking.
+ * Integrates with an InputManager to process raw mouse input for an ECS system.
+ * Provides debug info, activation/deactivation, and resource cleanup.
+ */
+
+/**
  * Mouse Device Adapter
  * Handles mouse input and maps it to standardized input events
  */
 class MouseAdapter {
-  constructor() {
-    this.inputManager = null;
+  constructor(eventManager) {
+    this.inputManager = eventManager;
     this.mouseState = {
       position: { x: 0, y: 0 },
       movement: { x: 0, y: 0 },
@@ -14,8 +21,7 @@ class MouseAdapter {
     
     this.eventListeners = [];
     this.lastPosition = { x: 0, y: 0 };
-    this.isPointerLocked = false;
-    this.isActive = false;
+    this._initialized = false;
     this.debugMode = false;
     
     // Mouse button mapping
@@ -50,14 +56,19 @@ class MouseAdapter {
   /**
    * Initialize the mouse adapter
    */
-  initialize() {
-    if (typeof window === 'undefined') {
-      console.warn('[MouseAdapter] No window object available - running in non-browser environment');
-      return;
-    }
-
-    this.setupEventListeners();
-    this.isActive = true;
+  initialize(element) {
+    if (this._initialized) return;
+    const target = element && typeof element.addEventListener === 'function'
+      ? element
+      : (typeof document !== 'undefined' ? document : null);
+    if (!target) return;
+    // Register mouse events
+    ['mousedown','mouseup','mousemove','wheel','contextmenu'].forEach(ev => {
+      const handler = this['handle' + ev.charAt(0).toUpperCase() + ev.slice(1)];
+      target.addEventListener(ev, handler, false);
+      this.eventListeners.push({ element: target, event: ev, handler });
+    });
+    this._initialized = true;
     
     if (this.debugMode) {
       console.log('[MouseAdapter] Initialized successfully');
@@ -65,39 +76,28 @@ class MouseAdapter {
   }
 
   /**
-   * Setup mouse event listeners
+   * Check initialization state
    */
-  setupEventListeners() {
-    const onMouseMove = (event) => this.handleMouseMove(event);
-    const onMouseDown = (event) => this.handleMouseDown(event);
-    const onMouseUp = (event) => this.handleMouseUp(event);
-    const onWheel = (event) => this.handleWheel(event);
-    const onContextMenu = (event) => this.handleContextMenu(event);
-    const onPointerLockChange = () => this.handlePointerLockChange();
-    
-    window.addEventListener('mousemove', onMouseMove, { passive: false });
-    window.addEventListener('mousedown', onMouseDown, { passive: false });
-    window.addEventListener('mouseup', onMouseUp, { passive: false });
-    window.addEventListener('wheel', onWheel, { passive: false });
-    window.addEventListener('contextmenu', onContextMenu, { passive: false });
-    document.addEventListener('pointerlockchange', onPointerLockChange);
-    document.addEventListener('pointerlockerror', onPointerLockChange);
-    
-    this.eventListeners = [
-      { element: window, event: 'mousemove', handler: onMouseMove },
-      { element: window, event: 'mousedown', handler: onMouseDown },
-      { element: window, event: 'mouseup', handler: onMouseUp },
-      { element: window, event: 'wheel', handler: onWheel },
-      { element: window, event: 'contextmenu', handler: onContextMenu },
-      { element: document, event: 'pointerlockchange', handler: onPointerLockChange },
-      { element: document, event: 'pointerlockerror', handler: onPointerLockChange }
-    ];
+  isInitialized() {
+    return this._initialized;
   }
 
   /**
-   * Handle mouse movement
-   * @param {MouseEvent} event - The mouse event
+   * Cleanup event listeners
    */
+  cleanup() {
+    if (!this._initialized) return;
+    this.eventListeners.forEach(({ element, event, handler }) => {
+      element.removeEventListener(event, handler, false);
+    });
+    this.eventListeners = [];
+    this._initialized = false;
+  }
+   
+   /**
+    * Handle mouse movement
+    * @param {MouseEvent} event - The mouse event
+    */
   handleMouseMove(event) {
     if (!this.isActive) return;
     

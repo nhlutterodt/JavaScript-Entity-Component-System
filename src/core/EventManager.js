@@ -1,4 +1,11 @@
 /**
+ * EventManager
+ * Central event system for ECS: manages event listeners, event emission, queuing, and processing.
+ * Supports listener priorities, one-time listeners, debug logging, and statistics.
+ * Used for decoupled communication between ECS components and systems.
+ */
+
+/**
  * Event Management System for ECS
  * Handles event registration, dispatching, and cleanup
  */

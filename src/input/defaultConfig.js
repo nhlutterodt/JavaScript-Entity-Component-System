@@ -1,4 +1,10 @@
 /**
+ * defaultConfig.js
+ * 
+ * Provides the default input configuration for the input system, including key bindings, mouse actions, and settings for different gameplay contexts (default, menu, debug). This file is automatically loaded by the input system to initialize input profiles and settings.
+ */
+
+/**
  * Default Input Configuration
  * This configuration will be loaded automatically by the input system
  */

@@ -1,4 +1,10 @@
 /**
+ * ECS.integration.test.js
+ * Integration tests for the ECS system, covering system registration, entity/component lifecycle,
+ * event handling, system update loop, and debug/performance integration.
+ * Uses Jest and jsdom for DOM and system mocking.
+ */
+/**
  * @jest-environment jsdom
  */
 import ECSManager from '../src/core/ECSManager.js';

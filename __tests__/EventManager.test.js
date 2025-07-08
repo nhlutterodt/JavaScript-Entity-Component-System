@@ -1,3 +1,10 @@
+/**
+ * EventManager.test.js
+ * Unit tests for the EventManager class, covering event registration, emission, unregistration,
+ * queuing, debug mode, statistics, and edge cases.
+ * Uses Jest for assertions and mocking.
+ */
+
 import EventManager from '../src/core/EventManager.js';
 
 describe('EventManager', () => {

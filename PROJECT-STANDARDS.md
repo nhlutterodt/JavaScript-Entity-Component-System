@@ -474,3 +474,54 @@ The module standardization is complete. Remaining work is **outside this task sc
 **The JavaScript ECS project now has a fully standardized, consistent ES6 module export/import system. All import/export related issues have been resolved, and the project follows industry best practices for module organization.**
 
 *Task completed successfully with 100% compliance to established standards.*
+
+---
+
+## 🗄️ MongoDB Playground Standards
+
+To ensure secure and consistent usage of the VS Code MongoDB playground template, follow these guidelines:
+
+1. Environment Variables
+   - Create a `.env` in the workspace root with:
+     ```
+     MONGO_URI="<your connection string>"
+     DB_NAME="<your playground database name>"
+     ```
+   - Do **not** commit `.env`; add it to `.gitignore`.
+
+2. Dotenv Dependency
+   - Install and import `dotenv` in the playground header:
+     ```js
+     // load environment variables
+     require('dotenv').config();
+     ```
+
+3. Connection Pattern
+   - Use the global `Mongo` constructor:
+     ```js
+     const conn = new Mongo(process.env.MONGO_URI);
+     const db   = conn.getDB(process.env.DB_NAME);
+     ```
+   - Remove any `use('…')` calls once using Atlas.
+
+4. Globals Comment
+   - Update the top of the file to reflect only the actual globals:
+     ```js
+     /* global Mongo */
+     ```
+
+5. Async/Await and Logging
+   - Wrap queries in an async IIFE if you need `await`:
+     ```js
+     (async () => {
+       const totals = await db.getCollection('sales')
+         .aggregate([...])
+         .toArray();
+       console.log(totals);
+     })();
+     ```
+   - Always consume or log aggregation cursors (e.g., call `.toArray()` or `.hasNext()`).
+
+6. Code Hygiene
+   - Do **not** include raw credentials in source.
+   - Keep connection logic at the top of the playground, separate from business logic.

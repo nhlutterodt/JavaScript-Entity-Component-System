@@ -48,6 +48,19 @@ class InputManager {
   }
 
   /**
+   * Centralized error handler
+   * @param {Error} error
+   * @param {string} context
+   */
+  handleError(error, context) {
+    console.error(`[InputManager] Error in ${context}:`, error);
+    this.emit('input:error', { error, context });
+    if (this.debugManager && this.debugManager.log) {
+      this.debugManager.log('error', `Error in ${context}`, error);
+    }
+  }
+
+  /**
    * Initialize the input system with required components
    * @param {Object} options - Initialization options
    */
@@ -84,9 +97,9 @@ class InputManager {
       }
       
       this.emit('input:initialized');
-      
+
     } catch (error) {
-      console.error('[InputManager] Initialization failed:', error);
+      this.handleError(error, 'initialize');
       throw error;
     }
   }
@@ -130,7 +143,7 @@ class InputManager {
       try {
         adapter.update(deltaTime);
       } catch (error) {
-        console.error(`[InputManager] Error updating ${deviceType} adapter:`, error);
+        this.handleError(error, `updateAdapter:${deviceType}`);
       }
     }
     
@@ -229,21 +242,29 @@ class InputManager {
    * @param {Object} config - Configuration object (optional)
    */
   async loadConfig(config = null) {
-    try {
-      const inputConfig = config || await this.configProvider?.loadConfig();
-      
-      if (inputConfig) {
-        this.bindingMap?.loadBindings(inputConfig.bindings || {});
-        this.config = { ...this.config, ...inputConfig.settings };
-        
-        if (this.debugMode) {
-          console.log('[InputManager] Configuration loaded successfully');
+    const maxRetries = 3;
+    let attempt = 0;
+    while (attempt < maxRetries) {
+      try {
+        const inputConfig = config || await this.configProvider?.loadConfig();
+        if (inputConfig) {
+          this.bindingMap?.loadBindings(inputConfig.bindings || {});
+          this.config = { ...this.config, ...inputConfig.settings };
+          if (this.debugMode) console.log('[InputManager] Configuration loaded successfully');
+          this.emit('input:config_loaded', { config: inputConfig });
         }
-        
-        this.emit('input:config_loaded', { config: inputConfig });
+        return;
+      } catch (error) {
+        attempt++;
+        this.handleError(error, 'loadConfig');
+        if (attempt < maxRetries) {
+          if (this.debugMode) console.log(`[InputManager] Retrying loadConfig (attempt ${attempt + 1})`);
+        } else {
+          if (this.debugMode) console.warn('[InputManager] loadConfig failed after retries, applying defaults');
+          this.bindingMap?.loadBindings({});
+          return;
+        }
       }
-    } catch (error) {
-      console.error('[InputManager] Failed to load configuration:', error);
     }
   }
 
@@ -256,16 +277,11 @@ class InputManager {
         bindings: this.bindingMap?.getBindings() || {},
         settings: this.config
       };
-      
       await this.configProvider?.saveConfig(config);
-      
-      if (this.debugMode) {
-        console.log('[InputManager] Configuration saved successfully');
-      }
-      
+      if (this.debugMode) console.log('[InputManager] Configuration saved successfully');
       this.emit('input:config_saved', { config });
     } catch (error) {
-      console.error('[InputManager] Failed to save configuration:', error);
+      this.handleError(error, 'saveConfig');
     }
   }
 
@@ -289,27 +305,32 @@ class InputManager {
    * @param {Object} inputData - Raw input data
    */
   processRawInput(deviceType, inputData) {
-    if (!this.isInitialized || this.isPaused) {
-      return;
-    }
-    
-    // Add to key buffer for combo detection
-    this.keyBuffer?.addInput(inputData);
-    
-    // Check for combo matches
-    const combo = this.comboTracker?.checkForCombo(inputData);
-    if (combo) {
-      this.processComboInput(combo);
-      return;
-    }
-    
-    // Map raw input to actions via binding map
-    const actions = this.bindingMap?.mapInputToActions(inputData, this.currentContext);
-    
-    if (actions && actions.length > 0) {
-      for (const action of actions) {
-        this.processActionInput(action);
+    try {
+      if (typeof deviceType !== 'string' || typeof inputData !== 'object') {
+        throw new Error('Invalid raw input parameters');
       }
+      if (!this.isInitialized || this.isPaused) return;
+
+      // Add to key buffer for combo detection
+      this.keyBuffer?.addInput(inputData);
+
+      // Check for combo matches
+      const combo = this.comboTracker?.checkForCombo(inputData);
+      if (combo) {
+        this.processComboInput(combo);
+        return;
+      }
+
+      // Map raw input to actions via binding map
+      const actions = this.bindingMap?.mapInputToActions(inputData, this.currentContext);
+
+      if (actions && actions.length > 0) {
+        for (const action of actions) {
+          this.processActionInput(action);
+        }
+      }
+    } catch (error) {
+      this.handleError(error, 'processRawInput');
     }
   }
 
@@ -318,11 +339,13 @@ class InputManager {
    * @param {Object} combo - Detected combo data
    */
   processComboInput(combo) {
-    if (this.debugMode) {
-      console.log('[InputManager] Combo detected:', combo);
+    try {
+      if (!combo || typeof combo !== 'object') throw new Error('Invalid combo data');
+      if (this.debugMode) console.log('[InputManager] Combo detected:', combo);
+      this.emit('input:combo', combo);
+    } catch (error) {
+      this.handleError(error, 'processComboInput');
     }
-    
-    this.emit('input:combo', combo);
   }
 
   /**
@@ -330,48 +353,55 @@ class InputManager {
    * @param {Object} action - Action data
    */
   processActionInput(action) {
-    const { name, type, value, timestamp } = action;
-    
-    // Update action state
-    let state = this.actionStates.get(name);
-    if (!state) {
-      state = {
-        isPressed: false,
-        justPressed: false,
-        justReleased: false,
-        value: 0,
-        timestamp: 0
-      };
-      this.actionStates.set(name, state);
+    try {
+      const { name, type, value, timestamp } = action;
+      if (typeof name !== 'string' || !['press','release','analog'].includes(type)) {
+        throw new Error('Invalid action data');
+      }
+
+      // Update action state
+      let state = this.actionStates.get(name);
+      if (!state) {
+        state = {
+          isPressed: false,
+          justPressed: false,
+          justReleased: false,
+          value: 0,
+          timestamp: 0
+        };
+        this.actionStates.set(name, state);
+      }
+      
+      const wasPressed = state.isPressed;
+      
+      // Update state based on input type
+      switch (type) {
+        case 'press':
+          state.isPressed = true;
+          state.justPressed = !wasPressed;
+          state.justReleased = false;
+          state.value = value || 1;
+          break;
+          
+        case 'release':
+          state.isPressed = false;
+          state.justPressed = false;
+          state.justReleased = wasPressed;
+          state.value = 0;
+          break;
+          
+        case 'analog':
+          state.value = value || 0;
+          state.isPressed = Math.abs(state.value) > this.config.analogDeadzone;
+          state.justPressed = state.isPressed && !wasPressed;
+          state.justReleased = !state.isPressed && wasPressed;
+          break;
+      }
+      
+      state.timestamp = timestamp || this.frameData.timestamp;
+    } catch (error) {
+      this.handleError(error, 'processActionInput');
     }
-    
-    const wasPressed = state.isPressed;
-    
-    // Update state based on input type
-    switch (type) {
-      case 'press':
-        state.isPressed = true;
-        state.justPressed = !wasPressed;
-        state.justReleased = false;
-        state.value = value || 1;
-        break;
-        
-      case 'release':
-        state.isPressed = false;
-        state.justPressed = false;
-        state.justReleased = wasPressed;
-        state.value = 0;
-        break;
-        
-      case 'analog':
-        state.value = value || 0;
-        state.isPressed = Math.abs(state.value) > this.config.analogDeadzone;
-        state.justPressed = state.isPressed && !wasPressed;
-        state.justReleased = !state.isPressed && wasPressed;
-        break;
-    }
-    
-    state.timestamp = timestamp || this.frameData.timestamp;
   }
 
   /**

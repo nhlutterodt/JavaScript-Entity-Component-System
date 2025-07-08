@@ -1,6 +1,7 @@
 /**
- * Keyboard Device Adapter
- * Handles keyboard input and maps it to standardized input events
+ * KeyboardAdapter
+ * Handles keyboard input events, key normalization, modifier detection, and state tracking.
+ * Integrates with InputManager for ECS, supports debug info, and resource cleanup.
  */
 class KeyboardAdapter {
   constructor() {
